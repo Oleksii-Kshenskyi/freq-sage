@@ -1,6 +1,6 @@
 # FreQ Sage
 
-FreQ Sage is a easy to use but robust console application for frequency analysis of text, mostly for the purpose of language learning and, specifically, sentence mining.
+FreQ Sage is an easy to use but robust console application for frequency analysis of text, mostly for the purpose of language learning and, specifically, sentence mining.
 
 # How does it work?
 

@@ -14,3 +14,5 @@ target/
 **/mutants.out*/
 
 *.lock
+# I need this to exclude possible test texts in the folder.
+*.txt
