@@ -15,4 +15,5 @@ pub const FREQSAGE_ABOUT: &str = "FreQ Sage is an application for frequency anal
 pub struct CLI {
     #[arg(help = "The text file to analyze. [REQUIRED]")]
     pub file: PathBuf,
+    // TODO: develop a system for processing texts based on a number of pre-existing presets for specific text sources: such as Gutenberg books, Wikipedia articles, etc.
 }
