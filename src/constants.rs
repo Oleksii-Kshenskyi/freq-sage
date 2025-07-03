@@ -20,3 +20,5 @@ pub static GENERIC_WORD_GARBAGE_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
         Regex::new(r"(?u)[^\p{L}\p{N}]+$").unwrap(),
     ]
 });
+
+pub const EXP_WORD_COUNT_PENALTY_FACTOR: f64 = 0.5;

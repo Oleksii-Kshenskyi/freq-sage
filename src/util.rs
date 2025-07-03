@@ -15,6 +15,8 @@ impl Util {
             filename
         ))?;
         let raw_sentences = text
+            .replace("\r\n", " ")
+            .replace("\n", " ")
             .split_inclusive(&['.', '!', '?', ';'])
             .filter(|s| s.chars().any(char::is_alphabetic))
             .filter(|s| !s.is_empty())

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::{Context, Result};
 
-use crate::constants::GENERIC_WORD_GARBAGE_PATTERNS;
+use crate::constants::*;
 use crate::util::Util;
 
 #[derive(Debug)]
@@ -52,6 +52,8 @@ impl Rank {
     }
 }
 
+// FIXME: Remove duplicate sentences from the sentence bank
+// FIXME: Potentially discard sentences with less than 3 words from the sentence bank entirely.
 pub struct SentenceRanker {
     data: RawData,
     rankings: Vec<Rank>,
@@ -71,12 +73,11 @@ impl SentenceRanker {
     /// "easiness" is calculated as (word0-freq + word1-freq + ... wordn-freq) / <number-of-words-in-the-sentence>.
     /// Therefore the bigger the rating's number, the "easier" the sentence.
     /// (Turns out, it's just an arithmetic average of all the word frequencies in the sentence...)
-    // FIXME: Doesn't count the ratings properly. Arithmetic average does not take the number of words in a sentence into account, which is supposed to be the most important metric of easiness.
     fn rank(data: &RawData) -> Vec<Rank> {
         let mut rankings = vec![];
 
         for sentence in &data.sentences {
-            let mut score: u64 = 0;
+            let mut total_freq: u64 = 0;
             let words: Vec<String> = sentence
                 .split_whitespace()
                 .map(|s| Util::clean_token(s, &GENERIC_WORD_GARBAGE_PATTERNS))
@@ -84,9 +85,17 @@ impl SentenceRanker {
                 .collect();
 
             for word in &words {
-                score += data.freqs[word];
+                total_freq += data.freqs[word];
             }
-            score /= words.len() as u64;
+
+            // NOTE: the idea here is to have a weighted penalty for the high word count.
+            // The penalty is not just weighted, it's also exponential. Meaning the penalty gets exponentially higher the more words the sentence has.
+            let word_count = words.len() as u64;
+            // Average frequency divided by a word count penalty
+            let avg_freq = total_freq / word_count;
+            let penalty_factor = EXP_WORD_COUNT_PENALTY_FACTOR;
+            let word_penalty = (word_count as f64).powf(penalty_factor); // Exponential penalty for length
+            let score = (avg_freq as f64 / word_penalty) as u64;
 
             rankings.push(Rank::new(sentence.clone(), score));
         }
