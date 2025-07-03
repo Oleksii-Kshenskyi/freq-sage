@@ -18,6 +18,11 @@ fn main() -> Result<()> {
         return Ok(());
     }
     let data = RawData::from_file(cli.file.to_str().unwrap())?;
+
+    // let mut freqs_vec: Vec<(&String, &u64)> = data.freqs.iter().collect();
+    // freqs_vec.sort_by(|a, b| a.1.cmp(b.1));
+    // dbg!(freqs_vec);
+
     let ranks = SentenceRanker::new(data);
     for Rank { sentence, score } in ranks.rankings() {
         println!("- [{}]: {};", sentence, score);

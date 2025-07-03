@@ -17,6 +17,7 @@ impl Util {
         let raw_sentences = text
             .split_inclusive(&['.', '!', '?', ';'])
             .filter(|s| s.chars().any(char::is_alphabetic))
+            .filter(|s| !s.is_empty())
             .map(|s| Util::clean_token(s, &GENERIC_SENTENCE_GARBAGE_PATTERNS))
             .collect::<Vec<String>>();
 
@@ -28,7 +29,7 @@ impl Util {
         let mut current_tok = token.to_owned();
 
         for pattern in garbo_patterns {
-            // NOTE: Replace all returns Cow::Owned if the pattern matches, therefore the string is created anew.
+            // NOTE: replace_all() returns Cow::Owned if the pattern matches, therefore the string is created anew.
             // If the pattern does not match, it returns Cow::Borrowed, meaning the original string is returned.
             let result: Cow<'_, str> = pattern.replace_all(token, "");
             if let Cow::Owned(s) = result {

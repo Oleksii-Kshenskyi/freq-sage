@@ -22,13 +22,13 @@ impl RawData {
         Ok(Self { freqs, sentences })
     }
 
-    // FIXME: empty strings seem to get into the word frequencies somehow?
     fn collect_freqs(sentences: &[String]) -> HashMap<String, u64> {
         let mut freqs = HashMap::new();
         for s in sentences {
             let words: Vec<String> = s
                 .split_whitespace()
                 .map(|s| Util::clean_token(s, &GENERIC_WORD_GARBAGE_PATTERNS))
+                .filter(|s| !s.is_empty())
                 .collect();
             for word in words {
                 let entry = freqs.entry(word).or_insert(1);
@@ -80,6 +80,7 @@ impl SentenceRanker {
             let words: Vec<String> = sentence
                 .split_whitespace()
                 .map(|s| Util::clean_token(s, &GENERIC_WORD_GARBAGE_PATTERNS))
+                .filter(|s| !s.is_empty())
                 .collect();
 
             for word in &words {
