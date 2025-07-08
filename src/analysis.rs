@@ -53,16 +53,14 @@ impl Rank {
 }
 
 // FIXME: Remove duplicate sentences from the sentence bank
-// FIXME: Potentially discard sentences with less than 3 words from the sentence bank entirely.
 pub struct SentenceRanker {
-    data: RawData,
     rankings: Vec<Rank>,
 }
 
 impl SentenceRanker {
     pub fn new(data: RawData) -> Self {
         let rankings = Self::rank(&data);
-        Self { data, rankings }
+        Self { rankings }
     }
 
     pub fn rankings(&self) -> &Vec<Rank> {
@@ -83,6 +81,11 @@ impl SentenceRanker {
                 .map(|s| Util::clean_token(s, &GENERIC_WORD_GARBAGE_PATTERNS))
                 .filter(|s| !s.is_empty())
                 .collect();
+
+            // Discard current sentence from ranking (still counts in the word frequencies DB though) if number of words in sentence is smaller than threshold.
+            if words.len() < WORDS_IN_SENTENCE_DISCARD_THRESHOLD as usize {
+                continue;
+            }
 
             for word in &words {
                 total_freq += data.freqs[word];
