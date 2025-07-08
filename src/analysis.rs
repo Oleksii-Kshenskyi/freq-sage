@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use anyhow::{Context, Result};
 
@@ -52,7 +52,6 @@ impl Rank {
     }
 }
 
-// FIXME: Remove duplicate sentences from the sentence bank
 pub struct SentenceRanker {
     rankings: Vec<Rank>,
 }
@@ -73,6 +72,7 @@ impl SentenceRanker {
     /// (Turns out, it's just an arithmetic average of all the word frequencies in the sentence...)
     fn rank(data: &RawData) -> Vec<Rank> {
         let mut rankings = vec![];
+        let mut duplicate_checker: HashSet<Vec<String>> = HashSet::new();
 
         for sentence in &data.sentences {
             let mut total_freq: u64 = 0;
@@ -100,7 +100,10 @@ impl SentenceRanker {
             let word_penalty = (word_count as f64).powf(penalty_factor); // Exponential penalty for length
             let score = (avg_freq as f64 / word_penalty) as u64;
 
-            rankings.push(Rank::new(sentence.clone(), score));
+            if !duplicate_checker.contains(&words) {
+                rankings.push(Rank::new(sentence.clone(), score));
+                duplicate_checker.insert(words);
+            }
         }
 
         rankings.sort_by(|a, b| a.score.cmp(&b.score));
