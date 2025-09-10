@@ -9,6 +9,10 @@ TBD: specific details about most used commands (once the API and the command lin
 However, right now I can discuss the main ideas behind the application already.
 The point is to have a tool for frequency analysis of texts in your chosen target languages. For now of course, the application is only going to work with European or at least left-aligned latin and Cyrillic based languages (Asian languages are excluded for now). However, within that scope, the app should work well.
 
+# Notes on compiling and running it
+
+For the most part, you can just `cargo build --release` and then `cargo run`, as usual. The CLI help menu made with Clap should be understandable. However, the project uses an SQLite database, therefore a bunch of environment variables are expected. You can look into the `.env.template` file to figure out which env vars are necessary to set for the program to work.
+
 # What is frequency analysis in this case?
 
 By "frequency analysis" I mean:

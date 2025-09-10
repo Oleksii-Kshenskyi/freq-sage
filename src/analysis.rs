@@ -67,7 +67,7 @@ impl SentenceRanker {
     }
 
     /// This method ranks all sentences based on their "easiness" rating.
-    /// "easiness" is calculated as (word0-freq + word1-freq + ... wordn-freq) / <number-of-words-in-the-sentence>.
+    /// "easiness" is calculated as `(word0-freq + word1-freq + ... wordn-freq) / <number-of-words-in-the-sentence>`.
     /// Therefore the bigger the rating's number, the "easier" the sentence.
     /// (Turns out, it's just an arithmetic average of all the word frequencies in the sentence...)
     fn rank(data: &RawData) -> Vec<Rank> {
@@ -91,7 +91,7 @@ impl SentenceRanker {
                 total_freq += data.freqs[word];
             }
 
-            // NOTE: the idea here is to have a weighted penalty for the high word count.
+            // NOTE: the idea here is to have a weighted penalty to easiness (making the sentence harder in the ranking) for the high word count.
             // The penalty is not just weighted, it's also exponential. Meaning the penalty gets exponentially higher the more words the sentence has.
             let word_count = words.len() as u64;
             // Average frequency divided by a word count penalty

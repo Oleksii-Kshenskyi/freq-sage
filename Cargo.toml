@@ -8,3 +8,7 @@ anyhow = { version = "1.0.98", features = ["backtrace"] }
 clap = { version = "^4.5.28", features = ["derive"] }
 once_cell = "1.21.3"
 regex = "1.11.1"
+libsqlite3-sys = { version = "^0.33.0", features = ["bundled"] }
+diesel = { version = "^2.2.11", features = ["sqlite"] }
+diesel_migrations = { version = "^2.2.0", features = ["sqlite"] }
+dotenvy = "0.15.7"
