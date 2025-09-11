@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+
+use crate::analysis::SentenceRanker;
 use crate::schema::frequencies::dsl as dslfreq;
 use crate::schema::sentence_rankings::dsl as dslrank;
 use crate::schema::{frequencies, sentence_rankings};
@@ -8,7 +11,8 @@ use diesel::{Insertable, Queryable};
 use diesel::{insert_into, prelude::*};
 use diesel_migrations::MigrationHarness;
 
-use crate::constants::MIGRATIONS;
+use crate::analysis::RawData;
+use crate::constants::{DEFAULT_LANGUAGE, MIGRATIONS};
 
 // TODO: [LATER] Develop the ability to sync database from/to some external "cloud" source for quick fetch on a different machine. Potentially copy into a cloud folder or push/pull to/from GitHub.
 
@@ -37,10 +41,47 @@ pub struct SentenceRanking {
     pub lang: String,
 }
 
+pub struct DatabaseAdapter;
+impl DatabaseAdapter {
+    // NOTE: for now, I don't need an instance of the adapter, it's looking more like a collection of static methods (namespace). I'm still keeping an instance of it in the database though, for the future.
+    pub fn new() -> Self {
+        Self {}
+    }
+
+    pub fn freqs_to_db(conv: &HashMap<String, u64>) -> Vec<Frequency> {
+        conv.iter()
+            .map(|(word, freq)| Frequency {
+                id: None,
+                word: word.to_string(),
+                frequency: *freq as i64,
+                // FIXME(2): for now, language does not get forwarded from the DEFAULT_LANGUAGE env variable, it's just hardcoded in. Needs to be forwarded properly.
+                lang: DEFAULT_LANGUAGE.to_owned(),
+            })
+            .collect()
+    }
+
+    pub fn raw_data_to_db_rankings(data: RawData) -> Vec<SentenceRanking> {
+        // FIXME: Refactor? Should database adapter really be responsible for ranking new sentences, or does that responsibility actually lie elsewhere?
+        let ranker = SentenceRanker::new(data);
+        let ranks = ranker.rankings();
+        ranks
+            .iter()
+            .map(|r| SentenceRanking {
+                id: None,
+                sentence: r.sentence.clone(),
+                ranking: r.score as i64,
+                // FIXME(2): [DUPLICATE] for now, language does not get forwarded from the DEFAULT_LANGUAGE env variable, it's just hardcoded in. Needs to be forwarded properly.
+                lang: DEFAULT_LANGUAGE.to_string(),
+            })
+            .collect()
+    }
+}
+
 pub struct Database {
     conn: SqliteConnection,
     frequencies: Vec<Frequency>,
     rankings: Vec<SentenceRanking>,
+    adapter: DatabaseAdapter,
 }
 
 impl Database {
@@ -57,18 +98,21 @@ impl Database {
             conn,
             frequencies,
             rankings,
+            adapter: DatabaseAdapter::new(),
         })
     }
 
-    pub fn insert_freqs(&mut self, new_freqs: &[Frequency]) -> Result<()> {
+    pub fn insert_freqs(&mut self, new_freqs: &HashMap<String, u64>) -> Result<()> {
+        let target_freqs = DatabaseAdapter::freqs_to_db(new_freqs);
         insert_into(dslfreq::frequencies)
-            .values(new_freqs)
+            .values(&target_freqs)
             .execute(&mut self.conn)
             .map(|_| ())
             .context("Failed to insert frequencies")
     }
 
-    pub fn insert_rankings(&mut self, new_rankings: &[SentenceRanking]) -> Result<()> {
+    pub fn insert_rankings(&mut self, raw_data: RawData) -> Result<()> {
+        let new_rankings = DatabaseAdapter::raw_data_to_db_rankings(raw_data);
         insert_into(dslrank::sentence_rankings)
             .values(new_rankings)
             .execute(&mut self.conn)

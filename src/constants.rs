@@ -26,3 +26,7 @@ pub static GENERIC_WORD_GARBAGE_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
 
 pub const EXP_WORD_COUNT_PENALTY_FACTOR: f64 = 0.5;
 pub const WORDS_IN_SENTENCE_DISCARD_THRESHOLD: u64 = 3;
+
+pub const DEFAULT_LANGUAGE: &'static str = "English";
+
+// TODO: An int value to limit the amount of sentences/frequencies outputted by default?

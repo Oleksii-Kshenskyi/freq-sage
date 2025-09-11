@@ -12,6 +12,7 @@ use dotenvy;
 
 use crate::analysis::{Rank, RawData, SentenceRanker};
 use crate::cli::CLI;
+use crate::constants::DEFAULT_LANGUAGE;
 use crate::database::Database;
 
 // TODO: [LATER] add database support, either Diesel or rusqlite [SQLite-based].
@@ -23,17 +24,20 @@ use crate::database::Database;
 // TODO: In the future, if/when there's a settings file, implement a "default language" setting.
 // TODO: Implement the ability to clean up the database based on a regex filter (remove all sentences that match the filter from the database).
 
+// TODO: [!!!] Fix all the warnings first!
 fn main() -> Result<()> {
     dotenvy::dotenv().ok();
 
     let mut db = Database::new(&std::env::var("DATABASE_URL")?)?;
+    let dlang = std::env::var("DEFAULT_LANGUAGE").unwrap_or(DEFAULT_LANGUAGE.to_owned());
+
     let cli = CLI::parse();
     match cli.command {
+        // FIXME: [!!!] training kind of works, but it re-adds the same sentences to the database, duplicating them instead of changing for uniqueness?
         cli::Commands::Train { file } => {
             let data = RawData::from_file(file.to_str().unwrap())?;
-            // FIXME: there needs to either be an adapter that converts from RawData maps to Frequency/SentenceRanking, or RawData could be directly formatted as those model types.
             db.insert_freqs(&data.freqs);
-            db.insert_rankings(&data.sentences);
+            db.insert_rankings(data);
         }
         cli::Commands::Show { what } => match what {
             cli::ShowType::Frequencies => {
@@ -48,16 +52,6 @@ fn main() -> Result<()> {
             }
         },
     }
-    // let data = RawData::from_file(cli.file.to_str().unwrap())?;
-
-    // // let mut freqs_vec: Vec<(&String, &u64)> = data.freqs.iter().collect();
-    // // freqs_vec.sort_by(|a, b| a.1.cmp(b.1));
-    // // dbg!(freqs_vec);
-
-    // let ranks = SentenceRanker::new(data);
-    // for Rank { sentence, score } in ranks.rankings() {
-    //     println!("- [{}]: {};", sentence, score);
-    // }
 
     Ok(())
 }
