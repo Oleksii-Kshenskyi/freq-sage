@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::analysis::SentenceRanker;
 use crate::schema::frequencies::dsl as dslfreq;
 use crate::schema::sentence_rankings::dsl as dslrank;
@@ -14,7 +12,7 @@ use diesel::{insert_into, prelude::*};
 use diesel_migrations::MigrationHarness;
 
 use crate::analysis::RawData;
-use crate::constants::{DEFAULT_LANGUAGE, MIGRATIONS};
+use crate::constants::MIGRATIONS;
 
 // TODO: [LATER] Develop the ability to sync database from/to some external "cloud" source for quick fetch on a different machine. Potentially copy into a cloud folder or push/pull to/from GitHub.
 
@@ -50,20 +48,22 @@ impl DatabaseAdapter {
         Self {}
     }
 
-    pub fn freqs_to_db(conv: &HashMap<String, u64>) -> Vec<Frequency> {
-        conv.iter()
+    pub fn raw_data_to_db_freqs(data: &RawData) -> Vec<Frequency> {
+        data.freqs
+            .iter()
             .map(|(word, freq)| Frequency {
                 id: None,
                 word: word.to_string(),
                 frequency: *freq as i64,
                 // FIXME(2): for now, language does not get forwarded from the DEFAULT_LANGUAGE env variable, it's just hardcoded in. Needs to be forwarded properly.
-                lang: DEFAULT_LANGUAGE.to_owned(),
+                lang: data.lang.clone(),
             })
             .collect()
     }
 
-    pub fn raw_data_to_db_rankings(data: RawData) -> Vec<SentenceRanking> {
+    pub fn raw_data_to_db_rankings(data: &RawData) -> Vec<SentenceRanking> {
         // FIXME: Refactor? Should database adapter really be responsible for ranking new sentences, or does that responsibility actually lie elsewhere?
+        let l = data.lang.clone();
         let ranker = SentenceRanker::new(data);
         let ranks = ranker.rankings();
         ranks
@@ -72,8 +72,7 @@ impl DatabaseAdapter {
                 id: None,
                 sentence: r.sentence.clone(),
                 ranking: r.score as i64,
-                // FIXME(2): [DUPLICATE] for now, language does not get forwarded from the DEFAULT_LANGUAGE env variable, it's just hardcoded in. Needs to be forwarded properly.
-                lang: DEFAULT_LANGUAGE.to_string(),
+                lang: l.clone(),
             })
             .collect()
     }
@@ -105,8 +104,8 @@ impl Database {
         })
     }
 
-    pub fn insert_freqs(&mut self, new_freqs: &HashMap<String, u64>) -> Result<()> {
-        let target_freqs = DatabaseAdapter::freqs_to_db(new_freqs);
+    pub fn insert_freqs(&mut self, data: &RawData) -> Result<()> {
+        let target_freqs = DatabaseAdapter::raw_data_to_db_freqs(data);
         self.conn
             .transaction::<_, DieselError, _>(|conn| {
                 for freq in target_freqs {
@@ -125,7 +124,7 @@ impl Database {
             .context("Failed to insert frequencies")
     }
 
-    pub fn insert_rankings(&mut self, raw_data: RawData) -> Result<()> {
+    pub fn insert_rankings(&mut self, raw_data: &RawData) -> Result<()> {
         let new_rankings = DatabaseAdapter::raw_data_to_db_rankings(raw_data);
         self.conn
             .transaction::<_, DieselError, _>(|conn| {

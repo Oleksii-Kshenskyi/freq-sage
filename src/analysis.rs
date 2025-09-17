@@ -9,17 +9,22 @@ use crate::util::Util;
 pub struct RawData {
     pub freqs: HashMap<String, u64>,
     pub sentences: Vec<String>,
+    pub lang: String,
 }
 
 impl RawData {
-    pub fn from_file(filename: &str) -> Result<RawData> {
+    pub fn from_file(filename: &str, lang: String) -> Result<RawData> {
         let sentences = Util::sentences_from_file(filename).context(format!(
             "While getting frequencies from file `{}`.",
             filename
         ))?;
         let freqs = Self::collect_freqs(&sentences);
 
-        Ok(Self { freqs, sentences })
+        Ok(Self {
+            freqs,
+            sentences,
+            lang,
+        })
     }
 
     /// Returns a tuple of (frequency count, sentence count)
@@ -62,7 +67,7 @@ pub struct SentenceRanker {
 }
 
 impl SentenceRanker {
-    pub fn new(data: RawData) -> Self {
+    pub fn new(data: &RawData) -> Self {
         let rankings = Self::rank(&data);
         Self { rankings }
     }
