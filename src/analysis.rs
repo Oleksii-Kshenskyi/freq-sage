@@ -22,6 +22,11 @@ impl RawData {
         Ok(Self { freqs, sentences })
     }
 
+    /// Returns a tuple of (frequency count, sentence count)
+    pub fn data_sizes(&self) -> (usize, usize) {
+        (self.freqs.len(), self.sentences.len())
+    }
+
     fn collect_freqs(sentences: &[String]) -> HashMap<String, u64> {
         let mut freqs = HashMap::new();
         for s in sentences {
@@ -98,7 +103,7 @@ impl SentenceRanker {
             let avg_freq = total_freq / word_count;
             let penalty_factor = EXP_WORD_COUNT_PENALTY_FACTOR;
             let word_penalty = (word_count as f64).powf(penalty_factor); // Exponential penalty for length
-            let score = (avg_freq as f64 / word_penalty) as u64;
+            let score = (avg_freq as f64 / word_penalty).round() as u64;
 
             if !duplicate_checker.contains(&words) {
                 rankings.push(Rank::new(sentence.clone(), score));

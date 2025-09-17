@@ -6,6 +6,8 @@ use crate::schema::sentence_rankings::dsl as dslrank;
 use crate::schema::{frequencies, sentence_rankings};
 use anyhow::{Context, Result};
 use diesel::dsl::count_star;
+use diesel::result::Error as DieselError;
+use diesel::upsert::excluded;
 use diesel::{Insertable, Queryable};
 /// This module is responsible for the SQLite database that stores and represents word frequencies and sentence rankings based on specific languages.
 use diesel::{insert_into, prelude::*};
@@ -77,6 +79,7 @@ impl DatabaseAdapter {
     }
 }
 
+// FIXME: Either make sure these unused fields get used, or remove them from the Database struct.
 pub struct Database {
     conn: SqliteConnection,
     frequencies: Vec<Frequency>,
@@ -104,19 +107,38 @@ impl Database {
 
     pub fn insert_freqs(&mut self, new_freqs: &HashMap<String, u64>) -> Result<()> {
         let target_freqs = DatabaseAdapter::freqs_to_db(new_freqs);
-        insert_into(dslfreq::frequencies)
-            .values(&target_freqs)
-            .execute(&mut self.conn)
-            .map(|_| ())
+        self.conn
+            .transaction::<_, DieselError, _>(|conn| {
+                for freq in target_freqs {
+                    insert_into(dslfreq::frequencies)
+                        .values(&freq)
+                        .on_conflict((dslfreq::word, dslfreq::lang))
+                        .do_update()
+                        .set(
+                            dslfreq::frequency
+                                .eq(dslfreq::frequency + excluded(dslfreq::frequency)),
+                        )
+                        .execute(conn)?;
+                }
+                Ok(())
+            })
             .context("Failed to insert frequencies")
     }
 
     pub fn insert_rankings(&mut self, raw_data: RawData) -> Result<()> {
         let new_rankings = DatabaseAdapter::raw_data_to_db_rankings(raw_data);
-        insert_into(dslrank::sentence_rankings)
-            .values(new_rankings)
-            .execute(&mut self.conn)
-            .map(|_| ())
+        self.conn
+            .transaction::<_, DieselError, _>(|conn| {
+                for ranking in new_rankings {
+                    insert_into(dslrank::sentence_rankings)
+                        .values(&ranking)
+                        .on_conflict((dslrank::sentence, dslrank::lang))
+                        .do_update()
+                        .set(dslrank::ranking.eq(dslrank::ranking + excluded(dslrank::ranking)))
+                        .execute(conn)?;
+                }
+                Ok(())
+            })
             .context("Failed to insert sentence rankings")
     }
 

@@ -1,6 +1,6 @@
 use regex::Regex;
 
-use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
+use diesel_migrations::{EmbeddedMigrations, embed_migrations};
 use once_cell::sync::Lazy;
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();

@@ -7,24 +7,20 @@ pub mod util;
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use diesel::prelude::*;
 use dotenvy;
 
-use crate::analysis::{Rank, RawData, SentenceRanker};
+use crate::analysis::RawData;
 use crate::cli::CLI;
 use crate::constants::DEFAULT_LANGUAGE;
 use crate::database::Database;
 
-// TODO: [LATER] add database support, either Diesel or rusqlite [SQLite-based].
-// TODO: [AFTER DB] Develop a mechanism for FreQ Sage to train the database on new texts
 // TODO: [AFTER DB] Apart from the ability to train the database, Sage must also have the ability to dry-run and just show the rankings of sentences in this specific text, without adding the info to the DB. (training and dry-running should potentially be two different subcommands?)
-//       [POTENTIALLY] implement support of several file formats so (for example) processing
+// TODO: [POTENTIALLY] implement support of several file formats so (for example) processing
 //                     PDF books becomes possible.
 // TODO: Implement separating "databases" based on languages, separate database for each language.
 // TODO: In the future, if/when there's a settings file, implement a "default language" setting.
 // TODO: Implement the ability to clean up the database based on a regex filter (remove all sentences that match the filter from the database).
 
-// TODO: [!!!] Fix all the warnings first!
 fn main() -> Result<()> {
     dotenvy::dotenv().ok();
 
@@ -33,11 +29,19 @@ fn main() -> Result<()> {
 
     let cli = CLI::parse();
     match cli.command {
-        // FIXME: [!!!] training kind of works, but it re-adds the same sentences to the database, duplicating them instead of changing for uniqueness?
         cli::Commands::Train { file } => {
             let data = RawData::from_file(file.to_str().unwrap())?;
-            db.insert_freqs(&data.freqs);
-            db.insert_rankings(data);
+            db.insert_freqs(&data.freqs)
+                .context("main(): while trying to insert new freqs into the database.")?;
+            let sizes = data.data_sizes();
+            db.insert_rankings(data)
+                .context("main(): while trying to insert rankings into the database.")?;
+            println!(
+                "SUCCESS: processed file `{}` containing {} frequencies and {} sentences.",
+                file.display(),
+                sizes.0,
+                sizes.1
+            );
         }
         cli::Commands::Show { what } => match what {
             cli::ShowType::Frequencies => {
