@@ -2,9 +2,10 @@ use std::borrow::Cow;
 use std::fs::read_to_string;
 
 use anyhow::{Context, Result};
+use blake3::Hasher;
 use regex::Regex;
 
-use crate::constants::GENERIC_SENTENCE_GARBAGE_PATTERNS;
+use crate::constants::{GENERIC_SENTENCE_GARBAGE_PATTERNS, REDB_LAYOUT_VERSION};
 
 pub struct Util;
 
@@ -41,5 +42,31 @@ impl Util {
         }
 
         current_tok
+    }
+
+    /// Hashes a sequence of words with blake3 into a fixed 256-bit long hash. Hashes the sequence of: [Current REDB layout version, every word in the words sequence, total length (the number) of words]. Written that way to avoid possible conflict/collision with other sentences and words. Note that every time len() is used, it's explicitly converted to a u32 first - this is to safeguard against possible use of the application on non-64-bit platforms, as usize is pointer-width and the exact width is not guaranteed.
+    /// @param words - the input slice of strings (words) to hash. Note that every word is hashed together with its byte length to guarantee that the resulting hash counts word boundary (words "ab" + "c" and "a" + "bc" produce different hashes).
+    /// @returns - a fixed 256-bit long byte sequence, the resulting hash.
+    pub fn hash_words(words: &[String]) -> [u8; 32] {
+        let mut hasher = Hasher::new();
+
+        hasher.update(&[REDB_LAYOUT_VERSION]);
+
+        for word in words {
+            Self::hash_word(word, &mut hasher);
+        }
+
+        hasher.update(&(words.len() as u32).to_le_bytes());
+
+        *hasher.finalize().as_bytes()
+    }
+
+    // Hashes a single word with Blake3 (hasher is an external dependency). Doesn't return anything, just updates the mutable hasher that's passed in the input parameter.
+    // @param word - the word to hash
+    // @param hasher - the blake3 Hasher
+    pub fn hash_word(word: &str, hasher: &mut Hasher) {
+        let word_bytes = word.as_bytes();
+        hasher.update(&(word_bytes.len() as u32).to_le_bytes());
+        hasher.update(word_bytes);
     }
 }

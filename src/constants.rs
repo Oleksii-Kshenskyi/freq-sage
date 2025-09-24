@@ -1,9 +1,6 @@
 use regex::Regex;
 
-use diesel_migrations::{EmbeddedMigrations, embed_migrations};
 use once_cell::sync::Lazy;
-
-pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
 pub static GENERIC_SENTENCE_GARBAGE_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
     vec![
@@ -27,6 +24,8 @@ pub static GENERIC_WORD_GARBAGE_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
 pub const EXP_WORD_COUNT_PENALTY_FACTOR: f64 = 0.5;
 pub const WORDS_IN_SENTENCE_DISCARD_THRESHOLD: u64 = 3;
 
-pub const DEFAULT_LANGUAGE: &'static str = "English";
+pub const DEFAULT_LANGUAGE: &str = "English";
+
+pub const REDB_LAYOUT_VERSION: u8 = 1;
 
 // TODO: An int value to limit the amount of sentences/frequencies outputted by default?

@@ -27,6 +27,18 @@ impl RawData {
         })
     }
 
+    pub fn from_preexisting_data(
+        freqs: HashMap<String, u64>,
+        sentences: Vec<String>,
+        lang: String,
+    ) -> Self {
+        Self {
+            freqs,
+            sentences,
+            lang,
+        }
+    }
+
     /// Returns a tuple of (frequency count, sentence count)
     pub fn data_sizes(&self) -> (usize, usize) {
         (self.freqs.len(), self.sentences.len())
@@ -54,11 +66,16 @@ impl RawData {
 pub struct Rank {
     pub sentence: String,
     pub score: u64,
+    pub words: Vec<String>,
 }
 
 impl Rank {
-    pub fn new(sentence: String, score: u64) -> Self {
-        Self { sentence, score }
+    pub fn new(sentence: String, score: u64, words: Vec<String>) -> Self {
+        Self {
+            sentence,
+            score,
+            words,
+        }
     }
 }
 
@@ -68,7 +85,7 @@ pub struct SentenceRanker {
 
 impl SentenceRanker {
     pub fn new(data: &RawData) -> Self {
-        let rankings = Self::rank(&data);
+        let rankings = Self::rank(data);
         Self { rankings }
     }
 
@@ -76,43 +93,64 @@ impl SentenceRanker {
         &self.rankings
     }
 
+    pub fn rank_sentence(
+        sentence: &str,
+        db_freqs: &HashMap<String, u64>,
+        dup_checker: Option<&mut HashSet<Vec<String>>>,
+    ) -> Option<Rank> {
+        let mut total_freq: u64 = 0;
+        let words: Vec<String> = sentence
+            .split_whitespace()
+            .map(|s| Util::clean_token(s, &GENERIC_WORD_GARBAGE_PATTERNS))
+            .filter(|s| !s.is_empty())
+            .collect();
+        let words_clone = words.clone();
+
+        // Discard current sentence from ranking (still counts in the word frequencies DB though) if number of words in sentence is smaller than threshold.
+        if words.len() < WORDS_IN_SENTENCE_DISCARD_THRESHOLD as usize {
+            return None;
+        }
+
+        for word in &words {
+            total_freq += db_freqs[word];
+        }
+
+        // NOTE: the idea here is to have a weighted penalty to easiness (making the sentence harder in the ranking) for the high word count.
+        // The penalty is not just weighted, it's also exponential. Meaning the penalty gets exponentially higher the more words the sentence has.
+        let word_count = words.len() as u64;
+        // Average frequency divided by a word count penalty
+        let avg_freq = total_freq / word_count;
+        let penalty_factor = EXP_WORD_COUNT_PENALTY_FACTOR;
+        let word_penalty = (word_count as f64).powf(penalty_factor); // Exponential penalty for length
+        let score = (avg_freq as f64 / word_penalty).round() as u64;
+
+        let maybe_new_rank = Rank::new(sentence.to_owned(), score, words_clone);
+        if let Some(dc) = dup_checker {
+            if !dc.contains(&words) {
+                dc.insert(words);
+                Some(maybe_new_rank)
+            } else {
+                None
+            }
+        } else {
+            Some(maybe_new_rank)
+        }
+    }
+
+    // TODO[[13]]: develop the ability to test-rank and test-frequency-profile a single sentence, according to the current frequency values in the database and the ranking formula.
     /// This method ranks all sentences based on their "easiness" rating.
-    /// "easiness" is calculated as `(word0-freq + word1-freq + ... wordn-freq) / <number-of-words-in-the-sentence>`.
+    /// "easiness" is calculated as `(arithmetic average of all the word frequencies in the sentence) / (penalty for long sentence)`. Read about the penalty in the note inside the function body.
     /// Therefore the bigger the rating's number, the "easier" the sentence.
-    /// (Turns out, it's just an arithmetic average of all the word frequencies in the sentence...)
     fn rank(data: &RawData) -> Vec<Rank> {
         let mut rankings = vec![];
         let mut duplicate_checker: HashSet<Vec<String>> = HashSet::new();
 
+        // TODO: [NOW] instead of doing the sentence ranking in this loop, use the new rank_sentence() method from above.
         for sentence in &data.sentences {
-            let mut total_freq: u64 = 0;
-            let words: Vec<String> = sentence
-                .split_whitespace()
-                .map(|s| Util::clean_token(s, &GENERIC_WORD_GARBAGE_PATTERNS))
-                .filter(|s| !s.is_empty())
-                .collect();
-
-            // Discard current sentence from ranking (still counts in the word frequencies DB though) if number of words in sentence is smaller than threshold.
-            if words.len() < WORDS_IN_SENTENCE_DISCARD_THRESHOLD as usize {
-                continue;
-            }
-
-            for word in &words {
-                total_freq += data.freqs[word];
-            }
-
-            // NOTE: the idea here is to have a weighted penalty to easiness (making the sentence harder in the ranking) for the high word count.
-            // The penalty is not just weighted, it's also exponential. Meaning the penalty gets exponentially higher the more words the sentence has.
-            let word_count = words.len() as u64;
-            // Average frequency divided by a word count penalty
-            let avg_freq = total_freq / word_count;
-            let penalty_factor = EXP_WORD_COUNT_PENALTY_FACTOR;
-            let word_penalty = (word_count as f64).powf(penalty_factor); // Exponential penalty for length
-            let score = (avg_freq as f64 / word_penalty).round() as u64;
-
-            if !duplicate_checker.contains(&words) {
-                rankings.push(Rank::new(sentence.clone(), score));
-                duplicate_checker.insert(words);
+            if let Some(r) =
+                SentenceRanker::rank_sentence(sentence, &data.freqs, Some(&mut duplicate_checker))
+            {
+                rankings.push(r);
             }
         }
 

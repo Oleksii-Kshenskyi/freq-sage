@@ -16,9 +16,9 @@ pub struct CLI {
     #[command(subcommand)]
     pub command: Commands,
     // TODO: develop a system for processing texts based on a number of pre-existing presets for specific text sources: such as Gutenberg books, Wikipedia articles, etc.
-    // TODO: Introduce and develop a new argument that controls starting from a specific rank (only start from the 10th sentence, for example) [1]
-    // TODO(1): Introduce and develop a new argument that restricts the total number of sentences shown in the output. Also by default, only show the first X sentences starting from the (1) rank (that is to say, introduce a default value to this (2) argument). [2]
-    // TODO(2) [MAIN FEATURE]: Related to TODO(1): develop a feature (called `random` or `topN`, or `batch`) that shows N random sentences. There are two sub-modes for this:
+    // TODO: Introduce and develop a new argument that controls starting from a specific rank (only start from the 10th sentence, for example)
+    // TODO[[1]]: Introduce and develop a new argument that restricts the total number of sentences shown in the output. Also by default, only show the first X sentences starting from the rank specified in the argument (that is to say, introduce a default value to the argument developed in [[1]] and make it a setting in constants.rs/.env).
+    // TODO[[2]] [MAIN FEATURE]: Related to [[1]]: develop a feature (called `random` or `topN`, or `batch`) that shows N random sentences. There are two sub-modes for this:
     // 1. Have a feature to restrict sentences to showing only random sentences with easiness of up-to-X (not-harder-than-X-easiness). This is done so that we can limit the application from showing sentences that are too complex for the current level.
     // 2. Have a feature of only showing new sentences on subsequent runs of the command. Even though the sentences are random, only show those that haven't been shown on previous runs.
     // 3. Have a feature to regen only specific sentences out of the N generated ones. For example, if 20 sentences have been generated and you only don't like sentences 3, 7 and 15, you need to be able to specify that you only want those to be regenerated, and that's it. Other 17 should remain as is.
