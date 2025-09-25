@@ -22,3 +22,4 @@ target/
 
 # For now, all .db files are out, we'll see if some example DBs need to be committed in the future.
 *.db
+*.redb

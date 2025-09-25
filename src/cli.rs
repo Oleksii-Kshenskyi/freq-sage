@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{ArgAction, Parser, Subcommand, ValueEnum};
 
 pub const FREQSAGE_ABOUT_SHORT: &str = "Frequency analysis of text for language learning!";
 pub const FREQSAGE_ABOUT: &str = "FreQ Sage is an application for frequency analysis of text, mostly for the purpose of language learning and, specifically, sentence mining.";
@@ -36,6 +36,20 @@ pub enum Commands {
     Show {
         #[arg(value_enum, help = "what to show: sentences or rankings.")]
         what: ShowType,
+        #[arg(
+            short = 'l',
+            long = "limit",
+            help = "If specified, limits the queries of top rankings/frequencies to this specific amount. If left unspecified, the value of DEFAULT_TOP_N_LIMIT env variable is used, usually 50. Can be changed in .env (see .env.template)."
+        )]
+        limit: Option<u32>,
+        #[arg(
+            conflicts_with = "limit",
+            short = 'n',
+            long = "no-limit",
+            action = ArgAction::SetTrue,
+            help = "The opposite (and obviously conflicts with) of `-l/--limit`. If this is specified, no limit is applied to the top queries at all - no .env variable, no flag, no default, nothing. This will print as many entries as there are in the database. WARNING: may print A LOT if you've been using your DB for a while."
+        )]
+        no_limit: bool,
     },
 }
 

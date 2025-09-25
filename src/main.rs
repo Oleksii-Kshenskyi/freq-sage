@@ -10,7 +10,7 @@ use dotenvy::dotenv;
 
 use crate::analysis::RawData;
 use crate::cli::CLI;
-use crate::constants::DEFAULT_LANGUAGE;
+use crate::constants::{DEFAULT_LANGUAGE, DEFAULT_TOP_N_LIMIT};
 use crate::database::SageDatabase;
 
 // TODO: [AFTER DB] Apart from the ability to train the database, Sage must also have the ability to dry-run and just show the rankings of sentences in this specific text, without adding the info to the DB. (training and dry-running should potentially be two different subcommands?)
@@ -20,8 +20,13 @@ use crate::database::SageDatabase;
 fn main() -> Result<()> {
     dotenv().ok();
 
-    let mut db = SageDatabase::new(&std::env::var("DEFAULT_LANGUAGE")?)?;
     let dlang = std::env::var("DEFAULT_LANGUAGE").unwrap_or(DEFAULT_LANGUAGE.to_owned());
+    let mut db = SageDatabase::new(&dlang)?;
+
+    let conf_limit = std::env::var("DEFAULT_TOP_N_LIMIT")
+        .ok()
+        .and_then(|l| l.parse::<u32>().ok())
+        .unwrap_or(DEFAULT_TOP_N_LIMIT);
 
     let cli = CLI::parse();
     match cli.command {
@@ -45,18 +50,25 @@ fn main() -> Result<()> {
                 sizes.1
             );
         }
-        cli::Commands::Show { what } => match what {
-            cli::ShowType::Frequencies => {
-                for (index, freq) in db.top_freqs(None)?.iter().enumerate() {
-                    println!("{}. `{}`: {}", index + 1, freq.word, freq.freq)
+        cli::Commands::Show {
+            what,
+            limit,
+            no_limit,
+        } => {
+            let effective_limit = (!no_limit).then_some(limit.or(Some(conf_limit))).flatten();
+            match what {
+                cli::ShowType::Frequencies => {
+                    for (index, freq) in db.top_freqs(effective_limit)?.iter().enumerate() {
+                        println!("{}. `{}`: {}", index + 1, freq.word, freq.freq)
+                    }
+                }
+                cli::ShowType::Rankings => {
+                    for (index, rank) in db.top_rankings(effective_limit)?.iter().enumerate() {
+                        println!("{}. `{}` [{}]: {}", index + 1, rank.raw, dlang, rank.rating)
+                    }
                 }
             }
-            cli::ShowType::Rankings => {
-                for (index, rank) in db.top_rankings(None)?.iter().enumerate() {
-                    println!("{}. `{}` [{}]: {}", index + 1, rank.raw, dlang, rank.rating)
-                }
-            }
-        },
+        }
     }
 
     Ok(())

@@ -1,5 +1,3 @@
-// REFACTOR: completely migrate the database code from SQLite to redb.
-
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
@@ -17,8 +15,6 @@ use crate::util::Util;
 
 // TODO: [LATER] Develop the ability to sync database from/to some external "cloud" source for quick fetch on a different machine. Potentially copy into a cloud folder or push/pull to/from GitHub.
 
-// TODO: Create a basic Database struct that can load up the two base models (sentence_rankings and frequencies) and start "talking" (inserting/querying) to them.
-// TODO: start actually adding the frequencies and sentence rankings to the database after Sage runs through the specified text file.
 // TODO: develop the ability to just fetch first N frequencies from the database.
 // TODO: Develop the ability to just fetch first N sentence rankings from the database.
 
@@ -186,6 +182,7 @@ impl SageDatabase {
         }).collect::<Result<HashMap<_,_>, _>>()
     }
 
+    // REFACTOR: [???] can top_freqs() and top_rankings() be merged into a single function?
     pub fn top_freqs(&mut self, maybe_limit: Option<u32>) -> Result<Vec<FrequencyDoc>> {
         self.ensure_index_consistency(WORD_FREQ_INDEX, FREQUENCIES, Self::build_freq_index)?;
 
@@ -249,10 +246,10 @@ impl SageDatabase {
     fn ensure_version_consistency(db: &Database) -> Result<bool> {
         let current_version = Self::version(db)?;
 
-        match current_version.cmp(&REDB_LAYOUT_VERSION.into()) {
+        match current_version.cmp(&(REDB_LAYOUT_VERSION).into()) {
             // NOTE: if we've extracted a certain version from the DB, and it's exactly equal to the current DB layout version in our code, that means the version is up-to-date and we can safely return and do nothing.
             Ordering::Equal => Ok(false),
-            Ordering::Greater => {
+            Ordering::Less => {
                 let wtx = db.begin_write()?;
                 {
                     let mut systb = wtx.open_table(SYSTEM)?;
@@ -264,7 +261,7 @@ impl SageDatabase {
                 wtx.commit()?;
                 Ok(true)
             }
-            Ordering::Less => panic!(
+            Ordering::Greater => panic!(
                 "SageDatabase::ensure_version_consistency(): the DB version in the code is smaller than the version in the database itself. This means an inconsistency between the code and the DB, this needs to be investigated separately - it shouldn't happen if FreQ Sage is behaving properly."
             ),
         }
@@ -307,6 +304,7 @@ impl SageDatabase {
         }
     }
 
+    // REFACTOR: [???] can build_freq_index() and build_rankings_index() be merged into a single function?
     fn build_freq_index(&mut self) -> Result<()> {
         let wtx = self.db.begin_write()?;
         {
