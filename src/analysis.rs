@@ -145,7 +145,6 @@ impl SentenceRanker {
         let mut rankings = vec![];
         let mut duplicate_checker: HashSet<Vec<String>> = HashSet::new();
 
-        // TODO: [NOW] instead of doing the sentence ranking in this loop, use the new rank_sentence() method from above.
         for sentence in &data.sentences {
             if let Some(r) =
                 SentenceRanker::rank_sentence(sentence, &data.freqs, Some(&mut duplicate_checker))

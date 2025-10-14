@@ -15,9 +15,6 @@ use crate::util::Util;
 
 // TODO: [LATER] Develop the ability to sync database from/to some external "cloud" source for quick fetch on a different machine. Potentially copy into a cloud folder or push/pull to/from GitHub.
 
-// TODO: develop the ability to just fetch first N frequencies from the database.
-// TODO: Develop the ability to just fetch first N sentence rankings from the database.
-
 // Primary tables in the DB: words by word hash and sentences by sentence hash
 const FREQUENCIES: TableDefinition<[u8; 32], FrequencyDoc> = TableDefinition::new("frequencies");
 const SENTENCES: TableDefinition<[u8; 32], SentenceDoc> = TableDefinition::new("sentences");
@@ -68,7 +65,7 @@ impl FrequencyDoc {
 
 pub struct SageDatabase {
     db: Database,
-    lang: String,
+    pub lang: String,
     version_inconsistency: bool,
 }
 
@@ -106,6 +103,14 @@ impl SageDatabase {
         })
     }
 
+    pub fn status_check(status_db: &Self) -> Result<(u64, u64)> {
+        let rtx = status_db.db.begin_read()?;
+        let freqs = rtx.open_table(FREQUENCIES)?;
+        let sentences = rtx.open_table(SENTENCES)?;
+
+        Ok((freqs.len()?, sentences.len()?))
+    }
+
     pub fn insert_freqs(&mut self, data: &RawData) -> Result<()> {
         let wtx = self.db.begin_write()?;
         {
@@ -124,7 +129,7 @@ impl SageDatabase {
                 if dbval != 0 {
                     index_table.remove(&(dbval, hash))?;
                 }
-                index_table.insert(&(new_freq, hash), ())?;
+                index_table.insert(&(u64::MAX - new_freq, hash), ())?;
             }
         }
         wtx.commit()?;
@@ -162,7 +167,7 @@ impl SageDatabase {
                 if dbval != 0 {
                     index_table.remove(&(dbval, hash))?;
                 }
-                index_table.insert(&(new_val, hash), ())?;
+                index_table.insert(&(u64::MAX - new_val, hash), ())?;
             }
         }
         wtx.commit()?;
@@ -195,12 +200,12 @@ impl SageDatabase {
 
         for row in index_table.iter()?.take(limit) {
             let (key_guard, _) = row?;
-            let (freq, hash) = key_guard.value();
-            let word = primary_freqs_table
+            let (_, hash) = key_guard.value();
+            let (real_freq, word) = primary_freqs_table
                 .get(&hash)?
-                .map(|doc_guard| doc_guard.value().word)
+                .map(|doc_guard| (doc_guard.value().freq, doc_guard.value().word))
                 .context("SageDatabase::top_freqs(): UNREACHABLE: hash from index table is not in the primary frequencies table???")?;
-            result.push(FrequencyDoc::new(word, freq));
+            result.push(FrequencyDoc::new(word, real_freq));
         }
 
         Ok(result)
@@ -218,9 +223,9 @@ impl SageDatabase {
 
         for row in index_table.iter()?.take(limit) {
             let (key_guard, _) = row?;
-            let (ranking, hash) = key_guard.value();
-            let sentence = primary_table.get(&hash)?.map(|guard| guard.value().raw).context("SageDatabase::top_rankings(): UNREACHABLE: hash from index table is not in the primary sentences table???")?;
-            result.push(SentenceDoc::new(sentence, ranking));
+            let (_, hash) = key_guard.value();
+            let (real_rank, sentence) = primary_table.get(&hash)?.map(|guard| (guard.value().rating, guard.value().raw)).context("SageDatabase::top_rankings(): UNREACHABLE: hash from index table is not in the primary sentences table???")?;
+            result.push(SentenceDoc::new(sentence, real_rank));
         }
 
         Ok(result)
@@ -315,7 +320,7 @@ impl SageDatabase {
                 let (hash_guard, freq_doc_guard) = primary_pair?;
                 let hash = hash_guard.value();
                 let doc_freq = freq_doc_guard.value().freq;
-                index_table.insert((doc_freq, hash), ())?;
+                index_table.insert((u64::MAX - doc_freq, hash), ())?;
             }
         }
         wtx.commit()?;
@@ -333,7 +338,7 @@ impl SageDatabase {
                 let (hash_guard, sentence_doc_guard) = primary_pair?;
                 let hash = hash_guard.value();
                 let ranking = sentence_doc_guard.value().rating;
-                index_table.insert((ranking, hash), ())?;
+                index_table.insert((u64::MAX - ranking, hash), ())?;
             }
         }
         wtx.commit()?;

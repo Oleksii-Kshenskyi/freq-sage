@@ -31,5 +31,3 @@ pub const DEFAULT_LANGUAGE: &str = "English";
 pub const DEFAULT_TOP_N_LIMIT: u32 = 50;
 
 pub const REDB_LAYOUT_VERSION: u8 = 1;
-
-// TODO: An int value to limit the amount of sentences/frequencies outputted by default?

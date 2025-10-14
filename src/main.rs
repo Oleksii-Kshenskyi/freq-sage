@@ -21,6 +21,7 @@ fn main() -> Result<()> {
     dotenv().ok();
 
     let dlang = std::env::var("DEFAULT_LANGUAGE").unwrap_or(DEFAULT_LANGUAGE.to_owned());
+    // TODO: Introduce a CLI argument to force a custom database language, something other than env var or the default.
     let mut db = SageDatabase::new(&dlang)?;
 
     let conf_limit = std::env::var("DEFAULT_TOP_N_LIMIT")
@@ -30,6 +31,25 @@ fn main() -> Result<()> {
 
     let cli = CLI::parse();
     match cli.command {
+        cli::Commands::Status { language } => {
+            let status_db = match language {
+                None => db,
+                Some(l) => {
+                    if l == dlang {
+                        db
+                    } else {
+                        SageDatabase::new(&l)?
+                    }
+                }
+            };
+            match SageDatabase::status_check(&status_db) {
+                Err(e) => println!("[!!!] {}", e),
+                Ok((freq_len, sents_len)) => println!(
+                    "[STATUS] `{}.redb` database status OK, the DB has {} frequencies and {} sentence rankings.",
+                    &status_db.lang, freq_len, sents_len
+                ),
+            }
+        }
         // TODO: It should be possible to explicitly set the language of the file you're training with in the CLI parameters of train mode.
         cli::Commands::Train { file } => {
             let data = RawData::from_file(file.to_str().unwrap(), dlang)?;
